@@ -1,0 +1,11 @@
+fastapi>=0.115.0
+uvicorn>=0.30.0
+httpx>=0.27.0
+gradio>=5.0.0
+pydantic>=2.0.0
+pyyaml>=6.0.0
+python-dotenv>=1.0.0
+openai>=1.50.0          # OpenAI-compatible client for vLLM
+sse-starlette>=2.0.0    # Server-Sent Events for streaming
+mcp>=1.0.0              # Model Context Protocol
+strands-agents>=0.1.0   # multi-agent orchestration

@@ -1,0 +1,87 @@
+# Model Registry — all specialist doctor LLMs
+# Each entry defines a trained model, its vLLM serving config, and metadata.
+# Status: training | ready | serving
+
+specialists:
+  - id: pediatrician
+    name: "PediatricianGemma"
+    specialty: "Pediatrics"
+    description: "Specialist in child and adolescent medicine: neonatal care, developmental milestones, vaccinations, congenital conditions, pediatric emergencies"
+    base_model: "google/gemma-4-31b-it"
+    trained_model_path: "/home/ubuntu/dgxsparkfinetune/output/pediatrician_gemma/final_model/merged_model"
+    nvfp4_model_path: "/home/ubuntu/dgxsparkfinetune/output/pediatrician_gemma_nvfp4"
+    training_data: "/home/ubuntu/medAI/pediatrics_50k.parquet"
+    training_samples: 50000
+    status: training          # training | ready | serving
+    vllm_port: 8101
+    max_model_len: 8192
+    gpu_memory_utilization: 0.85
+    system_prompt: |
+      You are PediatricianGemma, a specialist AI assistant trained on 50,000 pediatric
+      medical cases covering neonatal care, child development, vaccinations, congenital
+      conditions, pediatric emergencies, and adolescent medicine.
+      Provide detailed, clinically accurate answers. Always recommend consulting a licensed
+      physician for actual medical decisions. When discussing medications, include
+      weight-based pediatric dosing where applicable.
+
+  - id: oncologist
+    name: "OncologyGemma"
+    specialty: "Oncology"
+    description: "Specialist in cancer diagnosis, staging, chemotherapy protocols, radiation oncology, palliative care"
+    base_model: "google/gemma-4-31b-it"
+    trained_model_path: "/home/ubuntu/dgxsparkfinetune/output/oncology_gemma/final_model/merged_model"
+    training_data: "/home/ubuntu/medAI/oncology_50k.parquet"
+    training_samples: 50000
+    status: planned
+    vllm_port: 8102
+    max_model_len: 8192
+    gpu_memory_utilization: 0.85
+    system_prompt: |
+      You are OncologyGemma, a specialist AI assistant trained on 50,000 oncology cases.
+      Provide detailed answers on cancer diagnosis, treatment protocols, and supportive care.
+      Always recommend consulting a licensed oncologist for actual medical decisions.
+
+  - id: cardiologist
+    name: "CardiologyGemma"
+    specialty: "Cardiology"
+    description: "Specialist in heart failure, arrhythmias, coronary artery disease, interventional cardiology"
+    base_model: "google/gemma-4-31b-it"
+    trained_model_path: "/home/ubuntu/dgxsparkfinetune/output/cardiology_gemma/final_model/merged_model"
+    training_data: "/home/ubuntu/medAI/cardiology_50k.parquet"
+    training_samples: 50000
+    status: planned
+    vllm_port: 8103
+    max_model_len: 8192
+    gpu_memory_utilization: 0.85
+    system_prompt: |
+      You are CardiologyGemma, a specialist AI assistant trained on cardiology cases.
+
+  - id: neurologist
+    name: "NeurologyGemma"
+    specialty: "Neurology"
+    description: "Specialist in stroke, epilepsy, multiple sclerosis, neurodegenerative diseases"
+    base_model: "google/gemma-4-31b-it"
+    trained_model_path: "/home/ubuntu/dgxsparkfinetune/output/neurology_gemma/final_model/merged_model"
+    training_data: "/home/ubuntu/medAI/neurology_50k.parquet"
+    training_samples: 50000
+    status: planned
+    vllm_port: 8104
+    max_model_len: 8192
+    gpu_memory_utilization: 0.85
+    system_prompt: |
+      You are NeurologyGemma, a specialist AI assistant trained on neurology cases.
+
+  - id: obgyn
+    name: "ObGynGemma"
+    specialty: "Obstetrics & Gynecology"
+    description: "Specialist in pregnancy, labour, postpartum care, gynaecological conditions"
+    base_model: "google/gemma-4-31b-it"
+    trained_model_path: "/home/ubuntu/dgxsparkfinetune/output/obgyn_gemma/final_model/merged_model"
+    training_data: "/home/ubuntu/medAI/obgyn_50k.parquet"
+    training_samples: 50000
+    status: planned
+    vllm_port: 8105
+    max_model_len: 8192
+    gpu_memory_utilization: 0.85
+    system_prompt: |
+      You are ObGynGemma, a specialist AI assistant trained on obstetrics and gynaecology cases.
