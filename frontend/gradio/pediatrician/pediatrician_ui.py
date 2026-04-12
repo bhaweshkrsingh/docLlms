@@ -1541,10 +1541,11 @@ def respond(message: str, history: list[list[str]]) -> str:
 
     # Build messages
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    for user_msg, assistant_msg in history:
-        messages.append({"role": "user", "content": user_msg})
-        if assistant_msg:
-            messages.append({"role": "assistant", "content": assistant_msg})
+    for msg in history:
+        role = msg.get("role") if isinstance(msg, dict) else None
+        content = msg.get("content") if isinstance(msg, dict) else None
+        if role in ("user", "assistant") and content:
+            messages.append({"role": role, "content": content})
     messages.append({"role": "user", "content": message})
 
     try:
@@ -1641,15 +1642,15 @@ def build_interface():
 
         # Wire up interactions
         def user_submit(message, history):
-            return "", history + [[message, None]]
+            return "", history + [{"role": "user", "content": message}]
 
         def bot_respond(history):
             if not history:
                 return history
-            user_msg = history[-1][0]
-            history[-1][1] = ""
+            user_msg = history[-1]["content"]
+            history = history + [{"role": "assistant", "content": ""}]
             for partial in respond(user_msg, history[:-1]):
-                history[-1][1] = partial
+                history[-1]["content"] = partial
                 yield history
 
         msg_box.submit(user_submit, [msg_box, chatbot], [msg_box, chatbot], queue=False).then(
