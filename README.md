@@ -20,14 +20,16 @@ docLlms/
 │   └── mcp/            MCP server — 4 pediatric tools (dosing, vaccines, growth, labs)
 ├── frontend/
 │   └── gradio/
-│       └── pediatrician/   Chat UI — 15 deep clinical example questions + mock answers
+│       ├── pediatrician/   Chat UI — 15 deep pediatric clinical questions + mock answers
+│       └── obgyn/          Chat UI — 15 deep OB/GYN clinical questions + mock answers
 ├── models/
 │   └── registry.yaml   Specialist registry: ports, model paths, status, system prompts
 ├── scripts/
-│   ├── post_training.sh    ONE-SHOT: quantise → update registry → serve → restart UI
-│   ├── serve_model.sh      Launch vLLM Docker container for one specialist
-│   ├── serve_all.sh        Launch all ready specialists
-│   └── start_all.sh        Start everything (vLLM + MCP + API + Gradio)
+│   ├── post_training.sh        ONE-SHOT (pediatrician): quantise → registry → serve → UI
+│   ├── post_training_obgyn.sh  ONE-SHOT (gynecologist): quantise → registry → serve → UI
+│   ├── serve_model.sh          Launch vLLM Docker container for one specialist
+│   ├── serve_all.sh            Launch all ready specialists
+│   └── start_all.sh            Start everything (vLLM + MCP + API + all Gradio UIs)
 ├── .env                Runtime config (gitignored — copy from .env.example)
 └── requirements.txt    Python deps (vLLM served via Docker, not pip)
 ```
@@ -36,30 +38,31 @@ docLlms/
 
 | Service | Port |
 |---------|------|
-| Gradio UI | 7920 |
+| PediatricianGemma Gradio UI | 7920 |
+| GynecologistGemma Gradio UI | 7921 |
 | FastAPI backend | 7910 |
 | MCP server | 7930 |
 | PediatricianGemma vLLM | 8101 |
 | OncologyGemma vLLM | 8102 |
 | CardiologyGemma vLLM | 8103 |
 | NeurologyGemma vLLM | 8104 |
-| ObGynGemma vLLM | 8105 |
+| GynecologistGemma vLLM | 8105 |
 
 ## Specialist Models
 
 | Specialist | Dataset | Rows | Status |
 |-----------|---------|------|--------|
 | PediatricianGemma | `pediatrics_50k.parquet` | 50,000 | **TRAINING** (~finishes Apr 17 2026) |
+| GynecologistGemma | `obgyn_50k.parquet` | 50,000 | **NEXT** — data ready, train after Apr 17 |
 | OncologyGemma | `oncology_50k.parquet` | 50,000 | Planned |
 | CardiologyGemma | `cardiology_50k.parquet` | 50,000 | Planned |
 | NeurologyGemma | `neurology_50k.parquet` | 50,000 | Planned |
-| ObGynGemma | `obgyn_50k.parquet` | 50,000 | Planned |
 
 Each ~4.4 days training on DGX Spark GB10 (600 steps × 610 s/step).
 
 ---
 
-## After Training Completes
+## After PediatricianGemma Training Completes (~Apr 17 2026)
 
 One command does everything:
 
@@ -71,9 +74,50 @@ Steps it runs automatically:
 1. Verify merged BF16 model at `output/pediatrician_gemma/final_model/merged_model`
 2. NVFP4 quantisation via nvidia-modelopt (512 calibration samples, ~30–60 min)
 3. Update `models/registry.yaml`: `status: training` → `status: ready`
-4. Launch vLLM via Docker (`vllm/vllm-openai:gemma4-cu130`)
+4. Launch vLLM via Docker (`vllm/vllm-openai:gemma4-cu130`, port 8101)
 5. Wait for vLLM health check at `http://localhost:8101/v1/models`
 6. Restart Gradio UI — now connects to live model instead of serving mock answers
+
+---
+
+## GynecologistGemma — Training and Serving
+
+### Start Training (immediately after PediatricianGemma finishes)
+
+```bash
+cd /home/ubuntu/dgxsparkfinetune
+export HF_TOKEN=$(cat ~/.cache/huggingface/token 2>/dev/null)
+export TRITON_PTXAS_PATH=/usr/local/cuda-13.0/bin/ptxas CUDA_HOME=/usr/local/cuda-13.0
+export PATH=/usr/local/cuda-13.0/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda-13.0/lib64:${LD_LIBRARY_PATH}
+export PYTORCH_ALLOC_CONF=expandable_segments:True
+source /home/ubuntu/venv/bin/activate
+
+mkdir -p output/obgyn_gemma
+nohup python finetune_dgx_spark.py \
+    --model gemma-4-31b --method qlora \
+    --dataset /home/ubuntu/medAI/obgyn_50k.parquet \
+    --question-col question --answer-col answer \
+    --epochs 1 --max-length 2048 \
+    --output-dir output/obgyn_gemma \
+> output/obgyn_gemma/train.log 2>&1 &
+echo $! > output/obgyn_gemma/train.pid
+
+# Start monitor
+nohup bash monitor_training.sh \
+    output/obgyn_gemma/train.log \
+    output/obgyn_gemma/status.log 120 > /dev/null 2>&1 &
+```
+
+**Expected:** ~4.4 days (600 steps × ~615 s/step), finishes ~Apr 22 2026.
+
+### After GynecologistGemma Training Completes (~Apr 22 2026)
+
+```bash
+bash /home/ubuntu/docLlms/scripts/post_training_obgyn.sh
+```
+
+Runs automatically: NVFP4 quantisation → update registry → launch vLLM (port 8105) → launch Gradio UI (port 7921)
 
 ---
 

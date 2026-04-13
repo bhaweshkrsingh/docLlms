@@ -1543,9 +1543,13 @@ def respond(message: str, history: list[list[str]]) -> str:
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     for msg in history:
         role = msg.get("role") if isinstance(msg, dict) else None
-        content = msg.get("content") if isinstance(msg, dict) else None
-        if role in ("user", "assistant") and content:
-            messages.append({"role": role, "content": content})
+        raw_content = msg.get("content") if isinstance(msg, dict) else None
+        if isinstance(raw_content, list):
+            text = next((c for c in raw_content if isinstance(c, str)), None)
+        else:
+            text = str(raw_content) if raw_content else None
+        if role in ("user", "assistant") and text:
+            messages.append({"role": role, "content": text})
     messages.append({"role": "user", "content": message})
 
     try:
@@ -1647,7 +1651,12 @@ def build_interface():
         def bot_respond(history):
             if not history:
                 return history
-            user_msg = history[-1]["content"]
+            raw = history[-1]["content"]
+            # Gradio 6.x preprocess always wraps content in a list
+            if isinstance(raw, list):
+                user_msg = next((c for c in raw if isinstance(c, str)), str(raw))
+            else:
+                user_msg = str(raw)
             history = history + [{"role": "assistant", "content": ""}]
             for partial in respond(user_msg, history[:-1]):
                 history[-1]["content"] = partial

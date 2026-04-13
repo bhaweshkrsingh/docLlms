@@ -25,7 +25,7 @@ def build_agent(specialist_id: str) -> BaseSpecialistAgent | None:
         "oncologist":   "OncologyGemma",
         "cardiologist": "CardiologyGemma",
         "neurologist":  "NeurologyGemma",
-        "obgyn":        "ObGynGemma",
+        "obgyn":        "GynecologistGemma",
     }
     agent.specialist_name = names.get(specialist_id, specialist_id.capitalize() + "Gemma")
     return agent

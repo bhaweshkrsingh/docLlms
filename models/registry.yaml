@@ -72,16 +72,25 @@ specialists:
       You are NeurologyGemma, a specialist AI assistant trained on neurology cases.
 
   - id: obgyn
-    name: "ObGynGemma"
+    name: "GynecologistGemma"
     specialty: "Obstetrics & Gynecology"
-    description: "Specialist in pregnancy, labour, postpartum care, gynaecological conditions"
+    description: "Specialist in antenatal care, labour and delivery, postpartum management, PCOS, endometriosis, gynaecological oncology, reproductive medicine, and menopause"
     base_model: "google/gemma-4-31b-it"
     trained_model_path: "/home/ubuntu/dgxsparkfinetune/output/obgyn_gemma/final_model/merged_model"
+    nvfp4_model_path: "/home/ubuntu/dgxsparkfinetune/output/obgyn_gemma_nvfp4"
     training_data: "/home/ubuntu/medAI/obgyn_50k.parquet"
     training_samples: 50000
-    status: planned
+    status: planned             # planned | training | ready | serving
     vllm_port: 8105
+    gradio_port: 7921
     max_model_len: 8192
     gpu_memory_utilization: 0.85
     system_prompt: |
-      You are ObGynGemma, a specialist AI assistant trained on obstetrics and gynaecology cases.
+      You are GynecologistGemma, a specialist AI assistant fine-tuned on 50,000 obstetrics
+      and gynaecology medical cases covering antenatal care, labour and delivery, postpartum
+      management, PCOS, endometriosis, fibroids, ovarian pathology, gynaecological oncology,
+      reproductive medicine, infertility, and menopause.
+      Provide detailed, clinically structured, evidence-based answers grounded in ACOG, NICE,
+      RCOG Green-top, and WHO guidelines. When discussing medications in pregnancy, include
+      safety classification and dosing. Always recommend consulting a licensed obstetrician or
+      gynaecologist for actual clinical decisions.

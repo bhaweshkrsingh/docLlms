@@ -29,16 +29,41 @@ nohup python backend/api/app.py > "$LOG_DIR/backend.log" 2>&1 &
 echo "$!" > "$LOG_DIR/backend.pid"
 sleep 2
 
-# 4. Gradio frontend
-echo "[4/4] Starting Gradio UI on port ${GRADIO_PORT:-7920}..."
-nohup python frontend/gradio/pediatrician/launch.py > "$LOG_DIR/gradio.log" 2>&1 &
-echo "$!" > "$LOG_DIR/gradio.pid"
+# 4. Gradio frontends (one per specialist that is ready/serving)
+echo "[4/4] Starting Gradio UIs..."
+
+# PediatricianGemma (port 7920)
+echo "  Starting PediatricianGemma UI on port ${GRADIO_PORT:-7920}..."
+nohup python frontend/gradio/pediatrician/launch.py > "$LOG_DIR/gradio_pediatrician.log" 2>&1 &
+echo "$!" > "$LOG_DIR/gradio_pediatrician.pid"
+
+# GynecologistGemma (port 7921) — only if status is ready or serving
+OBGYN_STATUS=$(python3 -c "
+import yaml
+with open('$ROOT_DIR/models/registry.yaml') as f:
+    r = yaml.safe_load(f)
+for s in r['specialists']:
+    if s['id'] == 'obgyn':
+        print(s.get('status', 'planned'))
+" 2>/dev/null || echo "planned")
+
+if [ "$OBGYN_STATUS" = "ready" ] || [ "$OBGYN_STATUS" = "serving" ]; then
+    echo "  Starting GynecologistGemma UI on port 7921..."
+    export OBGYN_GRADIO_PORT=7921
+    export OBGYN_VLLM_BASE_URL="http://localhost:8105/v1"
+    nohup python frontend/gradio/obgyn/launch.py > "$LOG_DIR/gradio_obgyn.log" 2>&1 &
+    echo "$!" > "$LOG_DIR/gradio_obgyn.pid"
+else
+    echo "  GynecologistGemma status=$OBGYN_STATUS — skipping UI launch (run post_training_obgyn.sh after training)"
+fi
 
 echo ""
 echo "=== All services started ==="
-echo "  Gradio UI : http://0.0.0.0:${GRADIO_PORT:-7920}"
-echo "  API       : http://0.0.0.0:${BACKEND_PORT:-7910}"
-echo "  MCP server: http://0.0.0.0:${MCP_PORT:-7930}/mcp"
-echo "  vLLM      : http://localhost:8101/v1  (pediatrician)"
+echo "  PediatricianGemma UI : http://0.0.0.0:${GRADIO_PORT:-7920}"
+echo "  GynecologistGemma UI : http://0.0.0.0:7921  (when status=ready)"
+echo "  API                  : http://0.0.0.0:${BACKEND_PORT:-7910}"
+echo "  MCP server           : http://0.0.0.0:${MCP_PORT:-7930}/mcp"
+echo "  vLLM pediatrician    : http://localhost:8101/v1"
+echo "  vLLM obgyn           : http://localhost:8105/v1  (when ready)"
 echo ""
 echo "Logs in: $LOG_DIR"
