@@ -28,3 +28,10 @@ openai>=1.50.0
 # MCP + agents
 mcp>=1.0.0              # Model Context Protocol
 strands-agents>=0.1.0   # multi-agent orchestration
+
+# Speech-to-text (voice input in Gradio UIs)
+# Uses openai/whisper-large-v3-turbo via HuggingFace transformers.
+# faster-whisper / WhisperX NOT used — CTranslate2 has no CUDA 13 wheel (Apr 2026).
+transformers>=4.44.0    # already present (used for training too)
+accelerate>=0.33.0      # optimised model loading
+tf-keras>=2.16.0        # backward-compat shim: prevents Keras 3 import error in transformers TF modules
