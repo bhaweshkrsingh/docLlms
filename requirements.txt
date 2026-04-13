@@ -1,11 +1,30 @@
+# docLlms — Python dependencies
+# ================================
+# Install: pip install -r requirements.txt
+# Python venv: /home/ubuntu/venv (Python 3.12)
+#
+# NOTE: vLLM is NOT listed here.
+# vLLM is served via Docker image vllm/vllm-openai:gemma4-cu130 (already pulled).
+# This avoids CUDA 13 / SM 12.1 build incompatibilities with the training venv.
+# See scripts/serve_model.sh and scripts/post_training.sh.
+
+# API + serving
 fastapi>=0.115.0
 uvicorn>=0.30.0
 httpx>=0.27.0
+sse-starlette>=2.0.0    # Server-Sent Events for streaming
+
+# Frontend
 gradio>=5.0.0
+
+# Data / config
 pydantic>=2.0.0
 pyyaml>=6.0.0
 python-dotenv>=1.0.0
-openai>=1.50.0          # OpenAI-compatible client for vLLM
-sse-starlette>=2.0.0    # Server-Sent Events for streaming
+
+# vLLM client (OpenAI-compatible REST calls to the Docker vLLM endpoint)
+openai>=1.50.0
+
+# MCP + agents
 mcp>=1.0.0              # Model Context Protocol
 strands-agents>=0.1.0   # multi-agent orchestration
