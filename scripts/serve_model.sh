@@ -81,22 +81,61 @@ echo "========================================"
 LOG_FILE="/home/ubuntu/docLlms/logs/vllm_${SPECIALIST}.log"
 mkdir -p /home/ubuntu/docLlms/logs
 
-nohup python -m vllm.entrypoints.openai.api_server \
-    --model "$MODEL_PATH" \
-    --host 0.0.0.0 \
-    --port "$VLLM_PORT" \
-    --max-model-len 8192 \
-    --gpu-memory-utilization "$GPU_MEM" \
-    --dtype bfloat16 \
-    --enable-auto-tool-choice \
-    --tool-call-parser gemma4 \
-    > "$LOG_FILE" 2>&1 &
+# Use the pre-pulled Docker image (vllm/vllm-openai:gemma4-cu130).
+# This avoids installing vLLM into the training venv and ensures the correct
+# CUDA 13 / SM 12.1 build is used on DGX Spark GB10.
+CONTAINER_NAME="vllm_${SPECIALIST}"
 
-VLLM_PID=$!
-echo "$VLLM_PID" > "/home/ubuntu/docLlms/logs/vllm_${SPECIALIST}.pid"
-echo "vLLM started — PID $VLLM_PID"
-echo "Log: $LOG_FILE"
-echo "Endpoint: http://localhost:${VLLM_PORT}/v1"
+# Stop and remove any existing container for this specialist
+docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
+
+# Determine if we have an NVFP4 model (prefer it; fall back to BF16 merged)
+NVFP4_PATH=$(python3 -c "
+import yaml, sys
+with open('$REGISTRY') as f:
+    r = yaml.safe_load(f)
+for s in r['specialists']:
+    if s['id'] == '$SPECIALIST':
+        print(s.get('nvfp4_model_path', ''))
+        sys.exit(0)
+print('')
+")
+
+if [ -n "$NVFP4_PATH" ] && [ -d "$NVFP4_PATH" ]; then
+    SERVE_PATH="$NVFP4_PATH"
+    DTYPE_FLAG="--quantization fp4"
+    echo "  Format:  NVFP4 (full 1 PFLOPS inference)"
+else
+    SERVE_PATH="$MODEL_PATH"
+    DTYPE_FLAG="--dtype bfloat16"
+    echo "  Format:  BF16 merged (NVFP4 not yet quantised)"
+fi
+
+docker run -d \
+    --name "$CONTAINER_NAME" \
+    --gpus all \
+    -p "${VLLM_PORT}:8000" \
+    --ipc=host \
+    -v "${SERVE_PATH}:/model" \
+    -v "/home/bkprity/.cache/huggingface:/root/.cache/huggingface" \
+    -v "/home/bkprity/.cache/vllm:/root/.cache/vllm" \
+    -e HF_TOKEN="$HF_TOKEN" \
+    vllm/vllm-openai:gemma4-cu130 \
+        --model /model \
+        --host 0.0.0.0 \
+        --port 8000 \
+        --max-model-len 8192 \
+        --gpu-memory-utilization "$GPU_MEM" \
+        $DTYPE_FLAG \
+        --enable-auto-tool-choice \
+        --tool-call-parser gemma4 \
+    2>&1 | tee "$LOG_FILE"
+
+echo "========================================"
+echo "  Container: $CONTAINER_NAME"
+echo "  Endpoint:  http://localhost:${VLLM_PORT}/v1"
+echo "  Logs:      docker logs -f $CONTAINER_NAME"
+echo "========================================"
 echo ""
 echo "Wait ~60s for model to load, then test:"
 echo "  curl http://localhost:${VLLM_PORT}/v1/models"
