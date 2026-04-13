@@ -1505,6 +1505,51 @@ def _get_vllm_client() -> OpenAI | None:
     return None
 
 
+# ── Speech-to-text (Whisper large-v3-turbo via transformers) ─────────────────
+# Uses openai/whisper-large-v3-turbo — same encoder as large-v3 (best accuracy)
+# with a 4-layer decoder (vs 32-layer). RTFx ~200x. Works on CUDA 13 / PyTorch 2.9
+# via transformers. faster-whisper/WhisperX are NOT used — both require CUDA 12.x
+# (CTranslate2 has no CUDA 13 wheel as of Apr 2026).
+
+_asr_pipeline = None
+
+
+def _get_asr_pipeline():
+    global _asr_pipeline
+    if _asr_pipeline is None:
+        import torch
+        from transformers import pipeline as hf_pipeline
+        _asr_pipeline = hf_pipeline(
+            "automatic-speech-recognition",
+            model="openai/whisper-large-v3-turbo",
+            torch_dtype=torch.float16,
+            device="cuda",
+        )
+    return _asr_pipeline
+
+
+def transcribe_audio(audio: tuple | None) -> str:
+    """Transcribe microphone audio (sample_rate, numpy_array) → text via Whisper."""
+    if audio is None:
+        return ""
+    try:
+        import numpy as np
+        sr, data = audio
+        # Normalise int16 → float32
+        if data.dtype == np.int16:
+            data = data.astype(np.float32) / 32768.0
+        elif data.dtype != np.float32:
+            data = data.astype(np.float32)
+        # Stereo → mono
+        if data.ndim > 1:
+            data = data.mean(axis=1)
+        pipe = _get_asr_pipeline()
+        result = pipe({"raw": data, "sampling_rate": sr})
+        return result.get("text", "").strip()
+    except Exception as e:
+        return f"[Transcription error: {e}]"
+
+
 def _model_status() -> tuple[str, str]:
     """Return (status_text, color_css_class)."""
     client = _get_vllm_client()
@@ -1581,6 +1626,8 @@ CSS = """
                    padding: 2px 8px; border-radius: 4px; font-size: 0.8em; }
 #chatbox         { height: 520px; }
 .example-btn     { text-align: left !important; font-size: 0.82em !important; }
+.audio-input     { border: 1px dashed #93c5fd !important; border-radius: 8px !important;
+                   background: #eff6ff !important; }
 """
 
 DESCRIPTION = """
@@ -1628,6 +1675,15 @@ def build_interface():
                     send_btn = gr.Button("Send", scale=1, variant="primary")
 
                 with gr.Row():
+                    audio_input = gr.Audio(
+                        sources=["microphone"],
+                        type="numpy",
+                        label="🎤 Or speak your question — click the mic, speak, then stop recording",
+                        show_download_button=False,
+                        elem_classes=["audio-input"],
+                    )
+
+                with gr.Row():
                     clear_btn = gr.Button("Clear conversation", size="sm")
 
             with gr.Column(scale=1):
@@ -1669,5 +1725,12 @@ def build_interface():
             bot_respond, chatbot, chatbot
         )
         clear_btn.click(lambda: [], outputs=chatbot)
+
+        # Voice input: transcribe when recording stops, put text in msg_box
+        audio_input.stop_recording(
+            fn=transcribe_audio,
+            inputs=[audio_input],
+            outputs=[msg_box],
+        )
 
     return demo
